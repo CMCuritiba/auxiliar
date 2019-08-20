@@ -8,4 +8,4 @@ Módulo de autenticação para os sistemas com tecnologias e frameworks baseados
 ## Créditos
 
 - [Alexandre Odoni](https://github.com/aleodoni)
-- [Fábio Derosso Teixera](https://github.com/fderosso)
+- [Fábio Derosso Teixeira](https://github.com/fderosso)
