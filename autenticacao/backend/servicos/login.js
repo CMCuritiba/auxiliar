@@ -1,6 +1,6 @@
 /*
 Serviço responsável pela autenticação no LDAP
-- Entrada: usuário, senha e sistema
+- Entrada: usuário, senha,sistema e timeout em minutos
 - Saída: token em JSON conforme o sistema
 */
 const ldapjs = require("ldapjs");
@@ -15,11 +15,29 @@ const ERRO_PERMISSAO_RAMAIS_SETOR =
 module.exports = app => {
   const cfg = app.libs.config;
   const ldapClient = ldapjs.createClient(cfg.ldapOptions);
+  /**
+   *	@api	{post}	/auxiliar/autenticacao/login/	API	Status
+   *  @apiParam {String} usuario Usuário do sistema.
+   *  @apiParam {String} senha Senha do usuário do sistema.
+   *  @apiParam {String} sistema Sistema que está acessando a API.
+   *  @apiParam {Number} timeout Tempo em minutos de expiração do token gerado.
+   *	@apiGroup	Autenticacao
+   *	@apiSuccess	{json}	token	Token gerado para a aplicação que solicitou.
+   *	@apiSuccessExample	{json}	Sucesso
+   *				HTTP/1.1	201	OK
+   *				{"token":	"token gerado"}
+   *  @apiError {json} msg "Usuário ou senha inválidos.", "Usuário ou senha em branco.", "Erro ao fazer a procura no LDAP.", "Sem permissão de acessar o sistema de ramais.", "Sem permissão de acessar o sistema de ramais, não pertence ao setor permitido."
+   *  @apiErrorExample	{json}	Erro
+   *				HTTP/1.1	412	ERRO
+   *				{"msg":	"Usuário ou senha inválidos."}
+   */
   app.post("/auxiliar/autenticacao/login/", (req, response, next) => {
     if (req.body.usuario && req.body.senha) {
       const usuario = req.body.usuario;
       const senha = req.body.senha;
       const sistema = req.body.sistema;
+      const timeout = req.body.timeout;
+      console.log(timeout);
       let dn = "uid=" + usuario + "," + cfg.ous;
       ldapClient.bind(dn, senha, function(err) {
         if (err != null) {
@@ -62,8 +80,10 @@ module.exports = app => {
                       } else {
                         //agora verifica se esta pessoa está lotada na telefonia, DIF, suporte ou desenvolvimento
                         const setoresRamais = [27, 171, 172, 44];
+                        let nomeUsuario;
                         let setorUsuario;
                         for (let chave in resultado) {
+                          nomeUsuario = resultado[chave].nome;
                           setorUsuario = resultado[chave].setor;
                         }
                         if (setoresRamais.includes(setorUsuario)) {
@@ -74,11 +94,17 @@ module.exports = app => {
                               sistema.toUpperCase() +
                               "."
                           );
-                          let claims = {
-                            sub: usuario, // nome do usuario
-                            pes_id: entry.object.employeeNumber //aqui vai o pes_id
+                          let adicionaMinutos = function(dt, minutos) {
+                            return new Date(dt.getTime() + minutos * 60000);
                           };
-                          let jwt = nJwt.create(claims, cfg.chave);
+                          let claims = {
+                            sub: usuario, // login do usuario
+                            nomeUsuario: nomeUsuario, //nome do usuario
+                            pesId: entry.object.employeeNumber, //pes_id no LDAP
+                            iat: new Date().getTime(), //data e hora de criação do token
+                            exp: adicionaMinutos(new Date(), timeout) //data e hora de expiração do token
+                          };
+                          let jwt = nJwt.create(claims, cfg.chave, "HS512");
                           let token = jwt.compact();
                           response.status(201).json({ token: token });
                         } else {
