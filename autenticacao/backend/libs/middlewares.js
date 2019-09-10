@@ -4,9 +4,10 @@ var morgan = require("morgan");
 var compression = require("compression");
 var helmet = require("helmet");
 var log = require("./logger.js");
+var cors = require("cors");
 
 module.exports = app => {
-  app.set("port", 3000);
+  app.set("port", 3001);
   app.set("json spaces", 4);
   app.use(
     morgan("common", {
@@ -25,7 +26,6 @@ module.exports = app => {
     })
   );
   app.use(compression());
-  app.use(bodyParser.json());
   app.use("/auxiliar/autenticacao", express.static("public"));
 
   app.use(
@@ -34,4 +34,5 @@ module.exports = app => {
     })
   );
   app.use(bodyParser.json());
+  app.use(cors());
 };

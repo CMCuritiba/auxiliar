@@ -5,6 +5,14 @@ module.exports = {
   usernameRamais: process.env.USUARIO_RAMAIS,
   passwordRamais: process.env.PASSWORD_RAMAIS,
   consultaAutorizacaoRamais: process.env.CONSULTA_RAMAIS,
+  setoresRamais: process.env.SETORES_RAMAIS,
+  //------------------------------
+  //conexão com o banco biblioteca
+  databaseBiblioteca: process.env.DATABASE_BIBLIOTECA,
+  usernameBiblioteca: process.env.USUARIO_BIBLIOTECA,
+  passwordBiblioteca: process.env.PASSWORD_BIBLIOTECA,
+  consultaAutorizacaoBiblioteca: process.env.CONSULTA_BIBLIOTECA,
+  setoresBiblioteca: process.env.SETORES_RAMAIS,
   //------------------------------
   port: process.env.PORT,
   sequelizeOptions: {

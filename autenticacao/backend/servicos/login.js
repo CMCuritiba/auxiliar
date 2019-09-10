@@ -9,9 +9,10 @@ const Sequelize = require("sequelize");
 const ERRO_USUARIO_INVALIDO = "Usuário ou senha inválidos.";
 const ERRO_USUARIO_SENHA_BRANCO = "Usuário ou senha em branco.";
 const ERRO_PROCURA_LDAP = "Erro ao fazer a procura no LDAP.";
-const ERRO_PERMISSAO_RAMAIS = "Sem permissão de acessar o sistema de ramais.";
-const ERRO_PERMISSAO_RAMAIS_SETOR =
-  "Sem permissão de acessar o sistema de ramais, não pertence ao setor permitido.";
+const ERRO_PERMISSAO = "Sem permissão de acessar o sistema.";
+const ERRO_PERMISSAO_SETOR =
+  "Sem permissão de acessar o sistema, não pertence ao setor permitido.";
+
 module.exports = app => {
   const cfg = app.libs.config;
   const ldapClient = ldapjs.createClient(cfg.ldapOptions);
@@ -26,7 +27,7 @@ module.exports = app => {
    *	@apiSuccessExample	{json}	Sucesso
    *				HTTP/1.1	201	OK
    *				{"token":	"token gerado"}
-   *  @apiError {json} msg "Usuário ou senha inválidos.", "Usuário ou senha em branco.", "Erro ao fazer a procura no LDAP.", "Sem permissão de acessar o sistema de ramais.", "Sem permissão de acessar o sistema de ramais, não pertence ao setor permitido."
+   *  @apiError {json} msg "Usuário ou senha inválidos.", "Usuário ou senha em branco.", "Erro ao fazer a procura no LDAP.", "Sem permissão de acessar o sistema.", "Sem permissão de acessar o sistema, não pertence ao setor permitido."
    *  @apiErrorExample	{json}	Erro
    *				HTTP/1.1	412	ERRO
    *				{"msg":	"Usuário ou senha inválidos."}
@@ -37,7 +38,6 @@ module.exports = app => {
       const senha = req.body.senha;
       const sistema = req.body.sistema;
       const timeout = req.body.timeout;
-      console.log(timeout);
       let dn = "uid=" + usuario + "," + cfg.ous;
       ldapClient.bind(dn, senha, function(err) {
         if (err != null) {
@@ -73,13 +73,13 @@ module.exports = app => {
                     .query(consulta, { type: sequelize.QueryTypes.SELECT })
                     .then(resultado => {
                       if (resultado.length === 0) {
-                        console.log(ERRO_PERMISSAO_RAMAIS);
+                        console.log(ERRO_PERMISSAO);
                         response.status(412).json({
-                          msg: ERRO_PERMISSAO_RAMAIS
+                          msg: ERRO_PERMISSAO
                         });
                       } else {
                         //agora verifica se esta pessoa está lotada na telefonia, DIF, suporte ou desenvolvimento
-                        const setoresRamais = [27, 171, 172, 44];
+                        const setoresRamais = cfg.setoresRamais;
                         let nomeUsuario;
                         let setorUsuario;
                         for (let chave in resultado) {
@@ -108,9 +108,75 @@ module.exports = app => {
                           let token = jwt.compact();
                           response.status(201).json({ token: token });
                         } else {
-                          console.log(ERRO_PERMISSAO_RAMAIS_SETOR);
+                          console.log(ERRO_PERMISSAO_SETOR);
                           response.status(412).json({
-                            msg: ERRO_PERMISSAO_RAMAIS_SETOR
+                            msg: ERRO_PERMISSAO_SETOR
+                          });
+                        }
+                      }
+                    });
+                });
+                res.on("error", function(err) {
+                  console.log(err);
+                  response.status(412).json({
+                    msg: err
+                  });
+                });
+              }
+              //aqui pertence ao sistema de biblioteca
+              if (sistema === "biblioteca") {
+                res.on("searchEntry", function(entry) {
+                  let pesId = entry.object.employeeNumber;
+                  //verifica se esta no setor correto
+                  const sequelize = new Sequelize(
+                    cfg.databaseBiblioteca,
+                    cfg.usernameBiblioteca,
+                    cfg.passwordBiblioteca,
+                    cfg.sequelizeOptions
+                  );
+                  let consulta = cfg.consultaAutorizacaoBiblioteca + pesId;
+                  sequelize
+                    .query(consulta, { type: sequelize.QueryTypes.SELECT })
+                    .then(resultado => {
+                      if (resultado.length === 0) {
+                        console.log(ERRO_PERMISSAO);
+                        response.status(412).json({
+                          msg: ERRO_PERMISSAO
+                        });
+                      } else {
+                        //agora verifica se esta pessoa está lotada na biblioteca, DIF, suporte ou desenvolvimento
+                        const setoresBiblioteca = cfg.setoresBiblioteca;
+                        let nomeUsuario;
+                        let setorUsuario;
+                        for (let chave in resultado) {
+                          nomeUsuario = resultado[chave].nome;
+                          setorUsuario = resultado[chave].setor;
+                        }
+                        if (setoresBiblioteca.includes(setorUsuario)) {
+                          console.log(
+                            "Usuário: " +
+                              usuario +
+                              " logado com sucesso no sistema " +
+                              sistema.toUpperCase() +
+                              "."
+                          );
+                          let adicionaMinutos = function(dt, minutos) {
+                            return new Date(dt.getTime() + minutos * 60000);
+                          };
+                          let claims = {
+                            sub: usuario, // login do usuario
+                            nomeUsuario: nomeUsuario, //nome do usuario
+                            pesId: entry.object.employeeNumber, //pes_id no LDAP
+                            iat: new Date().getTime(), //data e hora de criação do token
+                            exp: adicionaMinutos(new Date(), timeout) //data e hora de expiração do token
+                          };
+                          let jwt = nJwt.create(claims, cfg.chave, "HS512");
+                          let token = jwt.compact();
+                          response.status(201).json({ token: token });
+                        } else {
+                          console.log(ERRO_PERMISSAO_SETOR);
+                          response.status(412).json({
+                            msg: ERRO_PERMISSAO_SETOR
                           });
                         }
                       }
