@@ -12,7 +12,14 @@ module.exports = {
   usernameBiblioteca: process.env.USUARIO_BIBLIOTECA,
   passwordBiblioteca: process.env.PASSWORD_BIBLIOTECA,
   consultaAutorizacaoBiblioteca: process.env.CONSULTA_BIBLIOTECA,
-  setoresBiblioteca: process.env.SETORES_RAMAIS,
+  setoresBiblioteca: process.env.SETORES_BIBLIOTECA,
+  //------------------------------
+  //conexão com o banco saude
+  databaseSaude: process.env.DATABASE_SAUDE,
+  usernameSaude: process.env.USUARIO_SAUDE,
+  passwordSaude: process.env.PASSWORD_SAUDE,
+  consultaAutorizacaoSaude: process.env.CONSULTA_SAUDE,
+  setoresSaude: process.env.SETORES_SAUDE,
   //------------------------------
   port: process.env.PORT,
   sequelizeOptions: {

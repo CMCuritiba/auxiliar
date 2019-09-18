@@ -189,6 +189,72 @@ module.exports = app => {
                   });
                 });
               }
+              //aqui pertence ao sistema de saúde
+              if (sistema === "saude") {
+                res.on("searchEntry", function(entry) {
+                  let pesId = entry.object.employeeNumber;
+                  //verifica se esta no setor correto
+                  const sequelize = new Sequelize(
+                    cfg.databaseSaude,
+                    cfg.usernameSaude,
+                    cfg.passwordSaude,
+                    cfg.sequelizeOptions
+                  );
+                  let consulta = cfg.consultaAutorizacaoSaude + pesId;
+                  sequelize
+                    .query(consulta, { type: sequelize.QueryTypes.SELECT })
+                    .then(resultado => {
+                      if (resultado.length === 0) {
+                        console.log(ERRO_PERMISSAO);
+                        response.status(412).json({
+                          msg: ERRO_PERMISSAO
+                        });
+                      } else {
+                        //agora verifica se esta pessoa está lotada na saúde, DIF, suporte ou desenvolvimento
+                        const setoresSaude = cfg.setoresSaude;
+                        let nomeUsuario;
+                        let setorUsuario;
+                        for (let chave in resultado) {
+                          nomeUsuario = resultado[chave].nome;
+                          setorUsuario = resultado[chave].setor;
+                        }
+                        if (setoresSaude.includes(setorUsuario)) {
+                          console.log(
+                            "Usuário: " +
+                              usuario +
+                              " logado com sucesso no sistema " +
+                              sistema.toUpperCase() +
+                              "."
+                          );
+                          let adicionaMinutos = function(dt, minutos) {
+                            return new Date(dt.getTime() + minutos * 60000);
+                          };
+                          let claims = {
+                            sub: usuario, // login do usuario
+                            nomeUsuario: nomeUsuario, //nome do usuario
+                            pesId: entry.object.employeeNumber, //pes_id no LDAP
+                            iat: new Date().getTime(), //data e hora de criação do token
+                            exp: adicionaMinutos(new Date(), timeout) //data e hora de expiração do token
+                          };
+                          let jwt = nJwt.create(claims, cfg.chave, "HS512");
+                          let token = jwt.compact();
+                          response.status(201).json({ token: token });
+                        } else {
+                          console.log(ERRO_PERMISSAO_SETOR);
+                          response.status(412).json({
+                            msg: ERRO_PERMISSAO_SETOR
+                          });
+                        }
+                      }
+                    });
+                });
+                res.on("error", function(err) {
+                  console.log(err);
+                  response.status(412).json({
+                    msg: err
+                  });
+                });
+              }
             }
           });
         }
